@@ -26,6 +26,7 @@ class AlertEvent:
     last_seen: float
     successful_login: bool = False
     geo_info: Optional[dict] = None
+    threat_intel: Optional[str] = None   # set to source label when IP is in threat intel DB
 
     def is_critical(self) -> bool:
         """Returns True when a successful login follows the brute-force storm."""

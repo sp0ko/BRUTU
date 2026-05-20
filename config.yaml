@@ -54,3 +54,20 @@ reports:
 logging:
   level: INFO
   # file: logs/detector.log
+
+# ── Offline IP reputation / Threat Intelligence ──────────────────────────────
+# Free public blocklists — no API key, no account required.
+# Step 1: python main.py --update-threat-db   (downloads ~50k bad IPs/CIDRs)
+# Step 2: set enabled: true
+threat_intel:
+  enabled: false
+  db_path: reports/threat_intel.txt
+  auto_update: false            # refresh DB automatically every update_interval
+  update_interval: 86400        # seconds between auto-updates (default: 24 h)
+  timeout: 15                   # HTTP request timeout per source (seconds)
+  # sources:                    # leave empty to use all 5 built-in sources
+  #   spamhaus_drop:    https://www.spamhaus.org/drop/drop.txt
+  #   spamhaus_edrop:   https://www.spamhaus.org/drop/edrop.txt
+  #   firehol_l1:       https://iplists.firehol.org/files/firehol_level1.netset
+  #   cins_army:        https://cinsscore.com/list/ci-badguys.txt
+  #   emerging_threats: https://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt

@@ -39,6 +39,7 @@ import utils.i18n as i18n
 from utils.geo import GeoLocator
 from utils.blocker import IPBlocker
 from utils.ip_utils import parse_cidr_list
+from utils.threat_intel import ThreatIntel
 
 VERSION = "1.2.0"
 DEFAULT_CONFIG = os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -134,6 +135,7 @@ class AlertDispatcher:
         geo: GeoLocator,
         blocker: Optional[IPBlocker] = None,
         whitelist_nets: Optional[list] = None,
+        threat_intel: Optional[ThreatIntel] = None,
     ) -> None:
         self.console = console
         self.discord = discord
@@ -142,11 +144,19 @@ class AlertDispatcher:
         self.geo = geo
         self.blocker = blocker
         self.whitelist_nets = whitelist_nets or []
+        self.threat_intel = threat_intel
 
     def dispatch(self, event: AlertEvent) -> None:
         from utils.ip_utils import ip_in_list
         geo_info = self.geo.lookup(event.ip)
         event.geo_info = geo_info
+
+        # Threat intel enrichment — check before sending alerts
+        if self.threat_intel:
+            match = self.threat_intel.is_known_bad(event.ip)
+            if match:
+                event.threat_intel = match
+                log.warning("THREAT INTEL MATCH: %s ← %s", event.ip, match)
 
         self.console.send(event, geo=geo_info)
 
@@ -261,6 +271,7 @@ def build_arg_parser(T: dict) -> argparse.ArgumentParser:
     p.add_argument("--test",        action="store_true",    help=T["help_test"])
     p.add_argument("--stats",       action="store_true",    help=T["help_stats"])
     p.add_argument("--blocked",     action="store_true",    help=T["help_blocked"])
+    p.add_argument("--update-threat-db", action="store_true", help=T["help_update_ti"])
     p.add_argument("--lang",        choices=["pl", "en"],   help=T["help_lang"])
     p.add_argument("--geoip-db",    metavar="FILE",          help=T["help_geoip_db"])
     p.add_argument("--version",     action="version",       version=f"BRUTU$ {VERSION}")
@@ -354,13 +365,37 @@ def main() -> int:
 
     whitelist = parse_cidr_list(cfg.get("whitelist", []))
 
+    ti_cfg = cfg.get("threat_intel", {})
+    threat_intel = ThreatIntel(
+        enabled=ti_cfg.get("enabled", False),
+        db_path=ti_cfg.get("db_path", "reports/threat_intel.txt"),
+        sources=ti_cfg.get("sources") or None,
+        auto_update=ti_cfg.get("auto_update", False),
+        update_interval=ti_cfg.get("update_interval", 86400),
+        timeout=ti_cfg.get("timeout", 15),
+    )
+    if ti_cfg.get("enabled"):
+        if threat_intel.count() > 0:
+            logger.info(T["ti_enabled"], threat_intel.count(), ti_cfg.get("db_path", "reports/threat_intel.txt"))
+        else:
+            logger.warning(T["ti_no_db"])
+    else:
+        logger.info(T["ti_disabled"])
+
     dispatcher = AlertDispatcher(
         console=console_alert, discord=discord_alert,
         slack=slack_alert, report_manager=rep_manager, geo=geo,
         blocker=blocker, whitelist_nets=whitelist,
+        threat_intel=threat_intel,
     )
 
     # ── Special modes ─────────────────────────────────────────────────────────
+    if args.update_threat_db:
+        print(T["ti_updating"] % len(threat_intel.sources))
+        count = threat_intel.update()
+        print(T["ti_updated"] % (count, ti_cfg.get("db_path", "reports/threat_intel.txt")))
+        return 0
+
     if args.test:
         run_test_mode(dispatcher, tracker, T)
         return 0

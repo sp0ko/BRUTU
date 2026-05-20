@@ -122,6 +122,14 @@ STRINGS: dict = {
         "blk_none":          "Brak aktualnie zablokowanych adresów IP.",
         "blk_spray_hint":    "[PASSWORD SPRAY] Wiele unikalnych kont z jednego IP.",
         "help_blocked":      "Pokaż listę zablokowanych IP i zakończ",
+        # ── threat intel ─────────────────────────────────────────────────────
+        "ti_enabled":         "Threat intel załadowany: %d wpisów z %s",
+        "ti_disabled":        "Threat intel: wyłączony",
+        "ti_no_db":           "Threat intel: brak bazy danych — uruchom --update-threat-db",
+        "ti_updating":        "Pobieranie bazy reputacji IP (%d źródeł)...",
+        "ti_updated":         "Threat intel zaktualizowany: %d wpisów → %s",
+        "ti_match":           "THREAT INTEL: %s",
+        "help_update_ti":     "Pobierz/zaktualizuj bazę reputacji IP i zakończ",
     },
     "en": {
         # ── main.py ──────────────────────────────────────────────────────────
@@ -232,6 +240,14 @@ STRINGS: dict = {
         "blk_none":          "No IPs are currently blocked.",
         "blk_spray_hint":    "[PASSWORD SPRAY] Many unique accounts targeted from one IP.",
         "help_blocked":      "Show blocked IP list and exit",
+        # ── threat intel ─────────────────────────────────────────────────────
+        "ti_enabled":         "Threat intel loaded: %d entries from %s",
+        "ti_disabled":        "Threat intel: disabled",
+        "ti_no_db":           "Threat intel: no DB found — run --update-threat-db to download",
+        "ti_updating":        "Downloading IP reputation DB (%d sources)...",
+        "ti_updated":         "Threat intel updated: %d entries → %s",
+        "ti_match":           "THREAT INTEL: %s",
+        "help_update_ti":     "Download/update IP reputation DB and exit",
     },
 }
 
