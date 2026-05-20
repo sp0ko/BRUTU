@@ -1,8 +1,8 @@
 # BRUTU$ 🛡️
 
-> Bo każdy random z Shodan myśli, że twój SSH to jego prywatny plac zabaw.
+> Because every random Shodan crawler thinks your SSH is their personal playground.
 
-**BRUTU$** śledzi logi SSH i RDP w czasie rzeczywistym, liczy nieudane logowania per IP i jak jakiś gość przekroczy próg — dostajesz ping na Discord/Slack zanim zdążysz wypić kawę. Plus geolokalizacja, żebyś wiedział z jakiego kraju przyszedł gość.
+**BRUTU$** monitors SSH and RDP logs in real time, counts failed logins per IP, and the moment some guy crosses the threshold — you get a ping on Discord/Slack before you even finish your coffee. GeoIP included, so you know exactly which country they're coming from.
 
 ```
  ██████╗ ██████╗ ██╗   ██╗████████╗██╗   ██╗███████╗
@@ -15,26 +15,26 @@
 
 ---
 
-## Co robi
+## What it does
 
-| Funkcja | Opis |
+| Feature | Description |
 |---|---|
-| 🔍 **Real-time monitoring** | Tail-uje plik logu tak jak `tail -f` — reaguje w ułamku sekundy |
-| 🐧 **Linux SSH** | Parsuje `/var/log/auth.log` i `/var/log/secure` (regex na syslog) |
-| 🪟 **Windows RDP** | Czyta pliki `.evtx` (Event ID 4625 / 4624) lub live Windows Event Log |
-| 🧠 **Sliding window** | Liczy próby w ruchomym oknie czasu — brak fałszywych alarmów przy restarcie |
-| 🚨 **Brute + włamanie** | Jeśli udane logowanie pojawia się PO serii nieudanych, dostaniesz KRYTYCZNY alert |
-| 🌍 **GeoIP** | Kraj, miasto, ISP — bez klucza API, przez [ip-api.com](http://ip-api.com) |
-| 💬 **Discord** | Rich embeds, pomarańczowe = ostrzeżenie, czerwone = włamanie |
-| 💬 **Slack** | Block Kit, wygląda profesjonalnie nawet o 3 w nocy |
-| 📄 **Raporty JSON** | Każdy alert ląduje w `.jsonl` — gotujesz do SIEMa albo po prostu masz historię |
-| ✅ **Biała lista** | Twoja sieć domowa / VPN / CI nie będzie Cię triggerować |
-| 🔕 **Cooldown** | Ten sam IP nie zasypie Cię 500 powiadomieniami — jeden alert na X minut |
-| 🧪 **Tryb testowy** | `--test` generuje symulowany atak i wysyła alerty na prawdziwe webhooks |
+| 🔍 **Real-time monitoring** | Tails log files just like `tail -f` — reacts in a fraction of a second |
+| 🐧 **Linux SSH** | Parses `/var/log/auth.log` and `/var/log/secure` (regex on syslog format) |
+| 🪟 **Windows RDP** | Reads `.evtx` files (Event ID 4625 / 4624) or live Windows Event Log |
+| 🧠 **Sliding window** | Counts attempts in a rolling time window — no false alarms on restarts |
+| 🚨 **Brute + breach** | If a successful login appears AFTER a series of failures, you get a CRITICAL alert |
+| 🌍 **GeoIP** | Country, city, ISP — no API key needed, powered by [ip-api.com](http://ip-api.com) |
+| 💬 **Discord** | Rich embeds — orange = warning, red = breach |
+| 💬 **Slack** | Block Kit — looks professional even at 3 AM |
+| 📄 **JSON reports** | Every alert is saved to `.jsonl` — pipe it into a SIEM or just keep the history |
+| ✅ **IP whitelist** | Your home network / VPN / CI won't trigger false alarms |
+| 🔕 **Cooldown** | Same IP won't flood you with 500 notifications — one alert per X minutes |
+| 🧪 **Test mode** | `--test` generates a simulated attack and fires alerts to your real webhooks |
 
 ---
 
-## Instalacja
+## Installation
 
 ```bash
 git clone https://github.com/sp0ko/BRUTU.git
@@ -44,7 +44,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Linux — uprawnienia do logów
+### Linux — log file permissions
 
 ```bash
 # Ubuntu/Debian
@@ -52,20 +52,20 @@ sudo usermod -aG adm $USER
 # RHEL/CentOS
 sudo usermod -aG adm $USER
 
-# albo po prostu odpal z sudo
+# or just run with sudo
 sudo python main.py
 ```
 
 ---
 
-## Szybki start
+## Quick start
 
-### 1. Skonfiguruj `config.yaml`
+### 1. Configure `config.yaml`
 
 ```yaml
 detection:
-  threshold: 5       # ile nieudanych == alert
-  time_window: 60    # w ciągu ilu sekund
+  threshold: 5       # how many failures trigger an alert
+  time_window: 60    # within how many seconds
 
 log_files:
   - path: /var/log/auth.log
@@ -74,20 +74,20 @@ log_files:
 
 discord:
   enabled: true
-  webhook_url: "https://discord.com/api/webhooks/TWÓJ_URL"
+  webhook_url: "https://discord.com/api/webhooks/YOUR_URL"
 
 slack:
   enabled: true
-  webhook_url: "https://hooks.slack.com/services/TWÓJ_URL"
+  webhook_url: "https://hooks.slack.com/services/YOUR_URL"
 ```
 
-### 2. Odpal
+### 2. Run it
 
 ```bash
 python main.py
 ```
 
-### 3. Przetestuj webhooks zanim cokolwiek wybuchnie
+### 3. Test your webhooks before anything goes wrong
 
 ```bash
 python main.py --test
@@ -95,157 +95,157 @@ python main.py --test
 
 ---
 
-## CLI
+## CLI reference
 
 ```
-python main.py [opcje]
+python main.py [options]
 
-  --config PATH         Własny plik konfiguracyjny
-  --log PATH            Dodatkowy plik logu do śledzenia
+  --config PATH         Custom config file path
+  --log PATH            Additional log file to monitor
   --type TYPE           Parser: linux_ssh | windows_evtx
-  --threshold N         Ile prób wyzwala alert
-  --window N            Okno czasowe w sekundach
-  --cooldown N          Przerwa między alertami dla tego samego IP
-  --discord-url URL     Discord webhook (bez konfiguracji w pliku)
-  --slack-url URL       Slack webhook (bez konfiguracji w pliku)
-  --test                Symulacja ataku — testuje webhooks
-  --stats               Pokaż aktywne IP i zakończ
-  --version             Wersja
+  --threshold N         Number of attempts to trigger an alert
+  --window N            Time window in seconds
+  --cooldown N          Cooldown between alerts for the same IP
+  --discord-url URL     Discord webhook (overrides config file)
+  --slack-url URL       Slack webhook (overrides config file)
+  --test                Simulate an attack — tests webhooks end-to-end
+  --stats               Show active IPs and exit
+  --version             Show version
 ```
 
-### Przykłady
+### Examples
 
 ```bash
-# Niższy próg, krótsze okno
+# Lower threshold, shorter window
 python main.py --threshold 3 --window 30
 
-# Podaj webhook z CLI (np. do testów)
+# Pass webhook from CLI (e.g. for quick testing)
 python main.py --discord-url "https://discord.com/api/webhooks/..."
 
-# Monitoruj konkretny plik
+# Monitor a specific file
 python main.py --log /var/log/secure --type linux_ssh
 ```
 
 ---
 
-## Jak podłączyć Discord
+## Discord setup
 
-1. Ustawienia serwera → **Integrations → Webhooks → New Webhook**
-2. Wybierz kanał, kliknij **Copy Webhook URL**
-3. Wklej URL do `config.yaml`:
+1. Server settings → **Integrations → Webhooks → New Webhook**
+2. Pick a channel, click **Copy Webhook URL**
+3. Paste into `config.yaml`:
    ```yaml
    discord:
      enabled: true
-     webhook_url: "https://discord.com/api/webhooks/TUTAJ"
+     webhook_url: "https://discord.com/api/webhooks/YOUR_URL_HERE"
    ```
 
-## Jak podłączyć Slack
+## Slack setup
 
-1. Wejdź na [api.slack.com/apps](https://api.slack.com/apps)
+1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. **Create New App → From Scratch**
 3. **Incoming Webhooks → Activate → Add New Webhook to Workspace**
-4. Wybierz kanał, skopiuj URL → wklej do `config.yaml`
+4. Pick a channel, copy the URL → paste into `config.yaml`
 
 ---
 
-## Przykładowe alerty
+## Example alerts
 
-**Terminal (normalny atak):**
+**Terminal — standard brute-force:**
 ```
 ══════════════════════════════════════════════════════════════════════
-          ⚠️  UWAGA! POTENCJALNY BRUTE FORCE!  ⚠️
+          ⚠️  WARNING! POTENTIAL BRUTE FORCE DETECTED!  ⚠️
 ══════════════════════════════════════════════════════════════════════
-  🌐 Adres IP       : 203.0.113.42
-  📊 Nieudane próby : 8 w ciągu 60s
-  🔌 Typ ataku      : SSH
-  👤 Użytkownicy    : root, admin, Administrator
-  📁 Źródło logów   : /var/log/auth.log
-  🕐 Czas wykrycia  : 2026-05-20 12:13:21
-  🗺  Geolokalizacja  : China, Beijing
+  🌐 IP Address      : 203.0.113.42
+  📊 Failed attempts : 8 in 60s
+  🔌 Attack type     : SSH
+  👤 Usernames tried : root, admin, Administrator
+  📁 Log source      : /var/log/auth.log
+  🕐 Detected at     : 2026-05-20 12:13:21
+  🗺  Geolocation     : China, Beijing
   🏢 ISP / Org       : ChinaNet
 ══════════════════════════════════════════════════════════════════════
 ```
 
-**Terminal (udane włamanie po ataku):**
+**Terminal — successful login after brute-force:**
 ```
 ══════════════════════════════════════════════════════════════════════
-       🚨 KRYTYCZNE! UDANE LOGOWANIE PO BRUTE-FORCE! 🚨
+       🚨 CRITICAL! SUCCESSFUL LOGIN AFTER BRUTE-FORCE! 🚨
 ══════════════════════════════════════════════════════════════════════
-  🌐 Adres IP       : 192.0.2.55
-  📊 Nieudane próby : 5 w ciągu 60s
+  🌐 IP Address      : 192.0.2.55
+  📊 Failed attempts : 5 in 60s
   ...
-  ‼ MOŻLIWE WŁAMANIE — sprawdź konto natychmiast!
+  ‼ POSSIBLE BREACH — check the account immediately!
 ══════════════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Jakie logi obsługuje
+## Supported log formats
 
 ### `/var/log/auth.log` (Debian/Ubuntu) / `/var/log/secure` (RHEL)
 
-Wykrywane wzorce:
+Detected patterns:
 - `Failed password for [invalid user] X from IP`
 - `Invalid user X from IP`
 - `Disconnected from invalid user X IP [preauth]`
 - `pam_unix(sshd:auth): authentication failure`
 - `xrdp-sesman: Authentication failed` (Linux RDP via xRDP)
-- `Accepted password/publickey for X from IP` (udane logowanie)
+- `Accepted password/publickey for X from IP` (successful login)
 
 ### Windows Event Log (`.evtx`)
 
-- **4625** — nieudane logowanie
-- **4624** — udane logowanie
-- **4648** — logowanie przez explicit credentials
-- LogonType **10** = RDP, **3** = Network/SMB
+- **4625** — failed logon
+- **4624** — successful logon
+- **4648** — logon using explicit credentials
+- LogonType **10** = RemoteInteractive (RDP), **7** = Unlock (RDP-related)
 
 ---
 
-## Struktura projektu
+## Project structure
 
 ```
 BRUTU/
-├── main.py                    ← tu się zaczyna zabawa
-├── config.yaml                ← cała konfiguracja
+├── main.py                    ← entry point, CLI, alert dispatcher
+├── config.yaml                ← all configuration lives here
 ├── requirements.txt
 ├── tests/
-│   ├── test_tracker.py        ← testy sliding-window
-│   └── test_parsers.py        ← testy parserów logów
+│   ├── test_tracker.py        ← sliding-window unit tests
+│   └── test_parsers.py        ← log parser unit tests
 ├── detector/
-│   ├── tracker.py             ← sliding-window licznik (thread-safe)
-│   ├── log_monitor.py         ← wątki tail-ujące pliki
-│   ├── report_manager.py      ← zapis do JSONL
+│   ├── tracker.py             ← thread-safe sliding-window counter
+│   ├── log_monitor.py         ← file-tailing threads
+│   ├── report_manager.py      ← JSONL report writer
 │   ├── parsers/
-│   │   ├── linux_ssh.py       ← regex na auth.log
-│   │   └── windows_evtx.py    ← parser EVTX + live win32
+│   │   ├── linux_ssh.py       ← regex parser for auth.log
+│   │   └── windows_evtx.py    ← EVTX parser + live win32evtlog
 │   └── alerts/
-│       ├── console_alert.py   ← kolorowy output w terminalu
+│       ├── console_alert.py   ← colored terminal output
 │       ├── discord_alert.py   ← Discord Rich Embeds
 │       └── slack_alert.py     ← Slack Block Kit
 └── utils/
-    ├── geo.py                 ← GeoIP z cache i rate-limitem
-    └── ip_utils.py            ← parsowanie list CIDR
+    ├── geo.py                 ← GeoIP with cache and rate limiting
+    └── ip_utils.py            ← CIDR whitelist parsing
 ```
 
 ---
 
-## Wymagania
+## Requirements
 
 - Python **3.8+**
-- `requests`, `pyyaml`, `colorama` (wszystko w `requirements.txt`)
-- Windows EVTX (pliki statyczne): `pip install python-evtx`
-- Windows live Event Log: `pip install pywin32` (tylko Windows)
+- `requests`, `pyyaml`, `colorama` (all in `requirements.txt`)
+- Windows EVTX static files: `pip install python-evtx`
+- Windows live Event Log: `pip install pywin32` (Windows only)
 
 ---
 
-## Bezpieczeństwo
+## Security notes
 
-- Webhook URL trzymaj w `config.yaml` i **nie commituj go do publicznego repo** — dodaj do `.gitignore` lub użyj zmiennych środowiskowych
-- Biała lista IP chroni przed fałszywymi alarmami z własnej sieci
-- Cooldown chroni przed flood-em powiadomień
+- Keep your webhook URLs in `config.yaml` and **do not commit it to a public repo** — add it to `.gitignore` or use environment variables
+- IP whitelist prevents false alarms from your own network
+- Cooldown prevents notification spam from persistent attackers
 
 ---
 
-## Licencja
+## License
 
-MIT — rób co chcesz, ale jak coś wybuchnie to nie moja wina 🤷
+MIT — do whatever you want, but if something breaks it's on you 🤷
