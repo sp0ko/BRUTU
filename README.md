@@ -17,24 +17,47 @@
 
 ## What it does
 
-| Feature | Description |
+### 🔍 Detection
+| | |
 |---|---|
-| 🔍 **Real-time monitoring** | Tails log files just like `tail -f` — reacts in a fraction of a second |
-| 🐧 **Linux SSH** | Parses `/var/log/auth.log` and `/var/log/secure` (regex on syslog format) |
-| 🪟 **Windows RDP** | Reads `.evtx` files (Event ID 4625 / 4624) or live Windows Event Log |
-| 🧠 **Sliding window** | Counts attempts in a rolling time window — no false alarms on restarts |
-| 🚨 **Brute + breach** | If a successful login appears AFTER a series of failures, you get a CRITICAL alert |
-| 🌍 **GeoIP — offline** | Country, city, ISP via local **GeoLite2-City.mmdb** — no internet, no API key, no data leaving your server |
-| 🌐 **GeoIP — online fallback** | Falls back to [ip-api.com](http://ip-api.com) if no local database is configured |
-| 💬 **Discord** | Rich embeds — orange = warning, red = breach |
+| 🧠 **Brute force** | Sliding-window counter — no false alarms on restarts |
+| 🚨 **Breach detection** | Successful login after failures → immediate CRITICAL alert |
+| 🔫 **Password spray** | One IP → many different usernames (credential-stuffing) |
+
+### 📡 Log sources
+| | |
+|---|---|
+| 🐧 **Linux SSH** | `/var/log/auth.log`, `/var/log/secure` — regex on syslog format |
+| 🪟 **Windows RDP** | `.evtx` files, Event ID 4625 / 4624, or live Windows Event Log |
+| ⚡ **Real-time tail** | Reacts in a fraction of a second, just like `tail -f` |
+
+### 🛡️ Active defense
+| | |
+|---|---|
+| 🚫 **IP blocker** | Adds iptables DROP rules automatically (requires root) |
+| 🕵️ **Threat intel** | Offline blocklists — Spamhaus, Firehol L1, CINS Army, Emerging Threats |
+| ✅ **IP whitelist** | Your home / VPN / CI never triggers a block or alert |
+| 🔕 **Cooldown** | Same IP won't flood you with alerts — one notification per X minutes |
+
+### 🌍 Intelligence & enrichment
+| | |
+|---|---|
+| 📴 **GeoIP offline** | Country, city, ISP from local **GeoLite2-City.mmdb** — no internet, no API key |
+| 🌐 **GeoIP online** | Falls back to [ip-api.com](http://ip-api.com) when no local DB is configured |
+
+### 📢 Alerting & reporting
+| | |
+|---|---|
+| 💬 **Discord** | Rich embeds — orange = warning, red = breach, ⚠ = known threat |
 | 💬 **Slack** | Block Kit — looks professional even at 3 AM |
-| 📄 **JSON reports** | Every alert is saved to `.jsonl` — pipe it into a SIEM or just keep the history |
-| ✅ **IP whitelist** | Your home network / VPN / CI won't trigger false alarms |
-| 🔕 **Cooldown** | Same IP won't flood you with 500 notifications — one alert per X minutes |
-| 🧪 **Test mode** | `--test` generates a simulated attack and fires alerts to your real webhooks |
-| 🔫 **Password spray** | Detects credential-stuffing (one IP → many different usernames) |
-| 🚫 **IP blocker** | Automatically adds iptables DROP rules for detected attackers (requires root) |
-| 🕵️ **Threat intel** | Checks every attacker against offline blocklists (Spamhaus, Firehol, CINS Army…) — no API key |
+| 📄 **JSON reports** | Every alert saved to `.jsonl` — pipe into a SIEM or keep as history |
+
+### ⚙️ Operations
+| | |
+|---|---|
+| 🧪 **Test mode** | `--test` simulates an attack and fires alerts to your real webhooks |
+| 🌐 **PL / EN** | Runtime language switch — `--lang pl` or `--lang en` |
+| 📊 **Stats / Reports** | `--stats` active IPs, `--blocked` blocked IPs, `--update-threat-db` refresh intel |
 
 ---
 
