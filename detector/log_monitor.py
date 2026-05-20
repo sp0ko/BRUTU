@@ -11,6 +11,7 @@ import threading
 import logging
 from typing import List, Callable, Optional
 
+import utils.i18n as i18n
 from .tracker import BruteForceTracker, AlertEvent
 from .parsers import get_parser, PARSER_REGISTRY
 
@@ -38,7 +39,7 @@ class LogFileWatcher(threading.Thread):
         self._stop = threading.Event()
 
     def run(self) -> None:
-        log.info("Monitorowanie: %s  (parser: %s)", self.path, self.parser.name)
+        log.info(i18n.get_T()["lm_monitoring"], self.path, self.parser.name)
         self._tail()
 
     def stop(self) -> None:
@@ -49,22 +50,22 @@ class LogFileWatcher(threading.Thread):
     def _tail(self) -> None:
         while not self._stop.is_set():
             if not os.path.exists(self.path):
-                log.warning("Plik nie istnieje: %s — czekam…", self.path)
+                log.warning(i18n.get_T()["lm_no_file"], self.path)
                 time.sleep(2)
                 continue
             try:
                 with open(self.path, "r", encoding="utf-8", errors="replace") as fh:
                     fh.seek(0, 2)
-                    log.info("Gotowy do czytania: %s", self.path)
+                    log.info(i18n.get_T()["lm_ready"], self.path)
                     while not self._stop.is_set():
                         line = fh.readline()
                         if not line:
                             try:
                                 if os.stat(self.path).st_ino != os.fstat(fh.fileno()).st_ino:
-                                    log.info("Rotacja logu: %s", self.path)
+                                    log.info(i18n.get_T()["lm_rotated"], self.path)
                                     break
                                 if os.stat(self.path).st_size < fh.tell():
-                                    log.info("Plik skrócony: %s", self.path)
+                                    log.info(i18n.get_T()["lm_truncated"], self.path)
                                     break
                             except OSError:
                                 break
@@ -72,7 +73,7 @@ class LogFileWatcher(threading.Thread):
                             continue
                         self._process_line(line)
             except OSError as exc:
-                log.error("Błąd odczytu %s: %s", self.path, exc)
+                log.error(i18n.get_T()["lm_read_err"], self.path, exc)
                 time.sleep(2)
 
     def _process_line(self, line: str) -> None:
@@ -80,7 +81,7 @@ class LogFileWatcher(threading.Thread):
         try:
             event = self.parser.parse_line(line)
         except Exception as exc:
-            log.debug("Błąd parsowania: %s", exc)
+            log.debug(i18n.get_T()["lm_parse_err"], exc)
             return
 
         if event is None:
@@ -108,7 +109,7 @@ class LogFileWatcher(threading.Thread):
             try:
                 self.on_alert(alert)
             except Exception as exc:
-                log.error("Błąd callbacku alertu: %s", exc)
+                log.error(i18n.get_T()["lm_alert_err"], exc)
 
 
 class LogMonitor:
@@ -124,7 +125,7 @@ class LogMonitor:
 
     def add_log_file(self, path: str, parser_type: str) -> None:
         if parser_type not in PARSER_REGISTRY:
-            raise ValueError(f"Nieznany parser: {parser_type}")
+            raise ValueError(i18n.get_T()["lm_unknown_parser"] % parser_type)
         self._watchers.append(LogFileWatcher(
             path=path, parser_type=parser_type,
             tracker=self.tracker, on_alert=self._dispatch,
@@ -133,10 +134,10 @@ class LogMonitor:
 
     def start(self) -> None:
         if not self._watchers:
-            raise RuntimeError("Brak plików logów do monitorowania.")
+            raise RuntimeError(i18n.get_T()["lm_no_files"])
         for w in self._watchers:
             w.start()
-        log.info("Monitor uruchomiony — %d plik(ów).", len(self._watchers))
+        log.info(i18n.get_T()["lm_started"], len(self._watchers))
 
     def stop(self) -> None:
         for w in self._watchers:
@@ -149,4 +150,4 @@ class LogMonitor:
             try:
                 h(event)
             except Exception as exc:
-                log.error("Błąd handlera: %s", exc)
+                log.error(i18n.get_T()["lm_dispatch_err"], exc)

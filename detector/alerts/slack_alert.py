@@ -7,6 +7,7 @@ from typing import Optional
 
 import requests
 
+import utils.i18n as i18n
 from ..tracker import AlertEvent
 
 
@@ -14,7 +15,7 @@ class SlackAlert:
 
     def __init__(self, webhook_url: str, timeout: int = 10) -> None:
         if not webhook_url:
-            raise ValueError("Slack webhook URL nie może być pusty.")
+            raise ValueError("Slack webhook URL cannot be empty.")
         self._url = webhook_url
         self._timeout = timeout
 
@@ -24,39 +25,40 @@ class SlackAlert:
             resp.raise_for_status()
             return True
         except requests.RequestException as exc:
-            print(f"[Slack] Błąd wysyłki: {exc}")
+            print(f"[Slack] Send error: {exc}")
             return False
 
     def _build_payload(self, event: AlertEvent, geo: Optional[dict]) -> dict:
+        T      = i18n.get_T()
         ts_str = datetime.fromtimestamp(event.last_seen).strftime("%Y-%m-%d %H:%M:%S")
 
         if event.successful_login:
-            header = "🚨 KRYTYCZNE! UDANE LOGOWANIE PO BRUTE-FORCE!"
-            color = "#FF0000"
-            summary = f"IP `{event.ip}` prawdopodobnie *pomyślnie przejął konto* po {event.count} nieudanych próbach."
+            header  = T["sl_title_crit"]
+            color   = "#FF0000"
+            summary = T["sl_summ_crit"].format(ip=event.ip, count=event.count)
         else:
-            header = "⚠️ UWAGA! POTENCJALNY BRUTE FORCE WYKRYTY!"
-            color = "#FFA500"
-            summary = f"IP `{event.ip}` wykonał *{event.count} nieudanych prób logowania* w ciągu *{event.time_window} sekund*."
+            header  = T["sl_title_warn"]
+            color   = "#FFA500"
+            summary = T["sl_summ_warn"].format(ip=event.ip, count=event.count, window=event.time_window)
 
         fields_md = "\n".join([
-            f"*🌐 Adres IP:*\t`{event.ip}`",
-            f"*📊 Próby:*\t{event.count} / {event.time_window}s",
-            f"*🔌 Typ ataku:*\t{event.attack_type or '—'}",
-            f"*👤 Użytkownicy:*\t{_trunc(', '.join(event.usernames) or '—', 300)}",
-            f"*📁 Źródło:*\t{_trunc(', '.join(event.log_sources) or '—', 200)}",
-            f"*🕐 Czas:*\t{ts_str}",
+            f"{T['sl_f_ip']}\t`{event.ip}`",
+            f"{T['sl_f_attempts']}\t{event.count} / {event.time_window}s",
+            f"{T['sl_f_type']}\t{event.attack_type or '—'}",
+            f"{T['sl_f_users']}\t{_trunc(', '.join(event.usernames) or '—', 300)}",
+            f"{T['sl_f_source']}\t{_trunc(', '.join(event.log_sources) or '—', 200)}",
+            f"{T['sl_f_time']}\t{ts_str}",
         ])
 
         if geo:
             loc = ", ".join(str(geo[k]) for k in ("country", "regionName", "city") if geo.get(k) and geo[k] != "unknown")
             if loc:
-                fields_md += f"\n*🗺 Lokalizacja:*\t{loc}"
+                fields_md += f"\n{T['sl_f_geo']}\t{loc}"
             if geo.get("isp") and geo["isp"] != "unknown":
-                fields_md += f"\n*🏢 ISP:*\t{geo['isp']}"
+                fields_md += f"\n{T['sl_f_isp']}\t{geo['isp']}"
 
         blocks = [
-            {"type": "header", "text": {"type": "plain_text", "text": header.replace("*", ""), "emoji": True}},
+            {"type": "header",  "text": {"type": "plain_text", "text": header.replace("*", ""), "emoji": True}},
             {"type": "section", "text": {"type": "mrkdwn", "text": summary}},
             {"type": "divider"},
             {"type": "section", "text": {"type": "mrkdwn", "text": fields_md}},
@@ -66,7 +68,7 @@ class SlackAlert:
             "attachments": [{
                 "color": color,
                 "blocks": blocks,
-                "fallback": f"[BRUTE-FORCE] IP {event.ip} — {event.count} prób w {event.time_window}s",
+                "fallback": T["sl_fallback"].format(ip=event.ip, count=event.count, window=event.time_window),
             }]
         }
 

@@ -34,6 +34,7 @@ from detector.report_manager import ReportManager
 from detector.alerts.console_alert import ConsoleAlert
 from detector.alerts.discord_alert import DiscordAlert
 from detector.alerts.slack_alert import SlackAlert
+import utils.i18n as i18n
 from utils.geo import GeoLocator
 from utils.ip_utils import parse_cidr_list
 
@@ -51,108 +52,28 @@ BANNER = r"""
   SSH & RDP Brute-Force Detector  •  Discord  •  Slack  •  GeoIP
 """.format(version=VERSION)
 
-# ── Translations ──────────────────────────────────────────────────────────────
-
-STRINGS: dict = {
-    "pl": {
-        "description":  "BRUTU$ — detekcja ataków SSH/RDP w czasie rzeczywistym",
-        "help_config":   "Ścieżka do pliku config.yaml",
-        "help_log":      "Dodatkowy plik logu",
-        "help_type":     "Typ parsera: linux_ssh | windows_evtx",
-        "help_threshold":"Próg nieudanych logowań",
-        "help_window":   "Okno czasu (sekundy)",
-        "help_cooldown": "Cooldown alertów (sekundy)",
-        "help_discord":  "Discord webhook URL",
-        "help_slack":    "Slack webhook URL",
-        "help_test":     "Tryb testowy — symulacja ataku",
-        "help_stats":    "Pokaż statystyki i zakończ",
-        "help_lang":     "Język interfejsu: pl | en (pomija interaktywny wybór)",
-        "err_config":    "[BŁĄD] Plik konfiguracyjny nie istnieje: %s",
-        "tracker_info":  "Tracker: próg=%d  okno=%ds  cooldown=%ds",
-        "discord_on":    "Discord webhook: aktywny ✓",
-        "discord_off":   "Discord: wyłączony",
-        "slack_on":      "Slack webhook: aktywny ✓",
-        "slack_off":     "Slack: wyłączony",
-        "reports_info":  "Raporty: %s",
-        "no_log_files":  "Brak aktywnych plików logów! Dodaj wpisy w 'log_files' w config.yaml.",
-        "adding_file":   "Dodaję plik: %s  (parser: %s)",
-        "signal_stop":   "Sygnał %s — zatrzymuję…",
-        "started":       "BRUTU$ uruchomiony — Ctrl+C aby zatrzymać.",
-        "active_ips":    "Aktywne IP: %d  |  Najbardziej aktywne: %s (%d prób)",
-        "stopped":       "BRUTU$ zatrzymany.",
-        "test_start":    "\n[TEST] Uruchamiam symulację ataku brute-force…\n",
-        "test_end":      "\n[TEST] Symulacja zakończona. Sprawdź Discord/Slack jeśli webhooks są skonfigurowane.",
-        "no_activity":   "Brak aktywności w bieżącym oknie czasu.",
-        "col_ip":        "IP",
-        "col_attempts":  "Próby",
-        "col_type":      "Typ ataku",
-        "col_users":     "Użytkownicy",
-    },
-    "en": {
-        "description":  "BRUTU$ — real-time SSH/RDP brute-force attack detector",
-        "help_config":   "Path to config.yaml file",
-        "help_log":      "Additional log file path",
-        "help_type":     "Parser type: linux_ssh | windows_evtx",
-        "help_threshold":"Failed login threshold",
-        "help_window":   "Time window (seconds)",
-        "help_cooldown": "Alert cooldown (seconds)",
-        "help_discord":  "Discord webhook URL",
-        "help_slack":    "Slack webhook URL",
-        "help_test":     "Test mode — simulate attack",
-        "help_stats":    "Show statistics and exit",
-        "help_lang":     "Interface language: pl | en (skips interactive prompt)",
-        "err_config":    "[ERROR] Config file not found: %s",
-        "tracker_info":  "Tracker: threshold=%d  window=%ds  cooldown=%ds",
-        "discord_on":    "Discord webhook: active ✓",
-        "discord_off":   "Discord: disabled",
-        "slack_on":      "Slack webhook: active ✓",
-        "slack_off":     "Slack: disabled",
-        "reports_info":  "Reports: %s",
-        "no_log_files":  "No active log files! Add entries under 'log_files' in config.yaml.",
-        "adding_file":   "Adding file: %s  (parser: %s)",
-        "signal_stop":   "Signal %s — stopping…",
-        "started":       "BRUTU$ running — press Ctrl+C to stop.",
-        "active_ips":    "Active IPs: %d  |  Most active: %s (%d attempts)",
-        "stopped":       "BRUTU$ stopped.",
-        "test_start":    "\n[TEST] Starting brute-force attack simulation…\n",
-        "test_end":      "\n[TEST] Simulation complete. Check Discord/Slack if webhooks are configured.",
-        "no_activity":   "No activity in the current time window.",
-        "col_ip":        "IP",
-        "col_attempts":  "Attempts",
-        "col_type":      "Attack type",
-        "col_users":     "Usernames",
-    },
-}
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-def _detect_lang_flag() -> Optional[str]:
-    """Scan sys.argv for --lang without running the full argparser."""
-    argv = sys.argv[1:]
-    for i, arg in enumerate(argv):
-        if arg.startswith("--lang="):
-            val = arg.split("=", 1)[1]
-            if val in ("pl", "en"):
-                return val
-        elif arg == "--lang" and i + 1 < len(argv):
-            val = argv[i + 1]
-            if val in ("pl", "en"):
-                return val
-    return None
+def _start_lang_listener(stop_event: threading.Event) -> None:
+    """Start a background daemon thread that reads 'lang' from stdin to switch language."""
+    if not sys.stdin.isatty():
+        return
 
+    def _listener() -> None:
+        while not stop_event.is_set():
+            try:
+                line = sys.stdin.readline()
+                if not line:          # EOF
+                    break
+                if line.strip().lower() == "lang":
+                    new_lang = i18n.select_language()
+                    i18n.set_lang(new_lang)
+                    print(i18n.get_T()["lang_changed"])
+            except (EOFError, OSError):
+                break
 
-def select_language() -> str:
-    """Prompt the user to choose a language and return 'pl' or 'en'."""
-    prompt = "  Wybierz język / Choose language:\n  [1] Polski  [2] English  (default: 2)\n  > "
-    while True:
-        try:
-            choice = input(prompt).strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return "en"
-        if choice == "1":
-            return "pl"
-        if choice in ("2", ""):
-            return "en"
+    threading.Thread(target=_listener, daemon=True, name="lang-listener").start()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -312,10 +233,11 @@ def main() -> int:
     print(BANNER)
 
     # ── Language selection ────────────────────────────────────────────────────
-    lang = _detect_lang_flag()
+    lang = i18n.detect_lang_flag()
     if lang is None:
-        lang = select_language()
-    T = STRINGS[lang]
+        lang = i18n.select_language()
+    i18n.set_lang(lang)
+    T = i18n.get_T()
     print()
 
     args = build_arg_parser(T).parse_args()
@@ -404,13 +326,15 @@ def main() -> int:
     stop_event = threading.Event()
 
     def handle_signal(sig, _frame):
-        logger.info(T["signal_stop"], sig)
+        logger.info(i18n.get_T()["signal_stop"], sig)
         stop_event.set()
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
     logger.info(T["started"])
+    logger.info(T["lang_hint"])
+    _start_lang_listener(stop_event)
 
     try:
         while not stop_event.is_set():
@@ -418,11 +342,11 @@ def main() -> int:
             stats = tracker.get_stats()
             if stats:
                 top_ip = max(stats, key=lambda x: stats[x]["count"])
-                logger.info(T["active_ips"],
+                logger.info(i18n.get_T()["active_ips"],
                             len(stats), top_ip, stats[top_ip]["count"])
     finally:
         monitor.stop()
-        logger.info(T["stopped"])
+        logger.info(i18n.get_T()["stopped"])
 
     return 0
 
