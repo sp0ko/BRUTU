@@ -24,7 +24,8 @@
 | 🪟 **Windows RDP** | Reads `.evtx` files (Event ID 4625 / 4624) or live Windows Event Log |
 | 🧠 **Sliding window** | Counts attempts in a rolling time window — no false alarms on restarts |
 | 🚨 **Brute + breach** | If a successful login appears AFTER a series of failures, you get a CRITICAL alert |
-| 🌍 **GeoIP** | Country, city, ISP — no API key needed, powered by [ip-api.com](http://ip-api.com) |
+| 🌍 **GeoIP — offline** | Country, city, ISP via local **GeoLite2-City.mmdb** — no internet, no API key, no data leaving your server |
+| 🌐 **GeoIP — online fallback** | Falls back to [ip-api.com](http://ip-api.com) if no local database is configured |
 | 💬 **Discord** | Rich embeds — orange = warning, red = breach |
 | 💬 **Slack** | Block Kit — looks professional even at 3 AM |
 | 📄 **JSON reports** | Every alert is saved to `.jsonl` — pipe it into a SIEM or just keep the history |
