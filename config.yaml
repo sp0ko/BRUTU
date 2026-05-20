@@ -3,10 +3,11 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 detection:
-  threshold: 5                 # liczba nieudanych logowań wyzwalająca alert
-  time_window: 60              # okno czasu (sekundy)
-  alert_cooldown: 300          # przerwa między alertami dla tego samego IP (sekundy)
-  success_failure_threshold: 3 # min. prób przed uznaniem udanego logowania za włamanie
+  threshold: 5                 # number of failed logins triggering an alert
+  time_window: 60              # time window (seconds)
+  alert_cooldown: 300          # cooldown between alerts for the same IP (seconds)
+  success_failure_threshold: 3 # min failures before a success counts as a breach
+  spray_username_threshold: 8  # unique accounts from one IP = password spray alert
 
 log_files:
   - path: /var/log/auth.log    # Debian / Ubuntu
@@ -34,6 +35,12 @@ geo:
   cache_ttl: 3600
   timeout: 5
   # mmdb_path: /path/to/GeoLite2-City.mmdb   # offline mode (requires: pip install geoip2)
+
+blocker:
+  enabled: false              # requires root / sudo
+  auto_unblock_after: 3600    # seconds; 0 = permanent until restart
+  state_file: reports/blocked_ips.json
+  dry_run: false              # true = log only, no real iptables rules
 
 whitelist:
   - "127.0.0.1"

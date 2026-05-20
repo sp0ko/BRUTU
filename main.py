@@ -24,6 +24,7 @@ import signal
 import sys
 import threading
 import time
+from datetime import datetime
 from typing import Optional
 
 import yaml
@@ -36,6 +37,7 @@ from detector.alerts.discord_alert import DiscordAlert
 from detector.alerts.slack_alert import SlackAlert
 import utils.i18n as i18n
 from utils.geo import GeoLocator
+from utils.blocker import IPBlocker
 from utils.ip_utils import parse_cidr_list
 
 VERSION = "1.1.0"
@@ -130,14 +132,19 @@ class AlertDispatcher:
         slack: Optional[SlackAlert],
         report_manager: Optional[ReportManager],
         geo: GeoLocator,
+        blocker: Optional[IPBlocker] = None,
+        whitelist_nets: Optional[list] = None,
     ) -> None:
         self.console = console
         self.discord = discord
         self.slack = slack
         self.report_manager = report_manager
         self.geo = geo
+        self.blocker = blocker
+        self.whitelist_nets = whitelist_nets or []
 
     def dispatch(self, event: AlertEvent) -> None:
+        from utils.ip_utils import ip_in_list
         geo_info = self.geo.lookup(event.ip)
         event.geo_info = geo_info
 
@@ -150,8 +157,37 @@ class AlertDispatcher:
         if self.report_manager:
             threading.Thread(target=self.report_manager.save, args=(event,), kwargs={"geo": geo_info}, daemon=True).start()
 
+        # Active defense — block attacker unless whitelisted
+        if self.blocker and not ip_in_list(event.ip, self.whitelist_nets):
+            self.blocker.block(
+                ip=event.ip,
+                attempts=event.count,
+                attack_type=event.attack_type,
+                usernames=event.usernames,
+                geo=geo_info,
+            )
+
 
 # ──────────────────────────────────────────────────────────────────────────────
+
+def print_blocked(blocker: IPBlocker, T: dict) -> None:
+    rows = blocker.get_blocked()
+    if not rows:
+        print(T["blk_none"])
+        return
+    hdr = T["blk_header"]
+    print(hdr)
+    print("-" * 90)
+    for r in rows:
+        ts  = datetime.fromtimestamp(r["blocked_at"]).strftime("%Y-%m-%d %H:%M:%S")
+        rem = T["blk_permanent"] if r["remaining_s"] is None else T["blk_seconds"] % r["remaining_s"]
+        geo = ""
+        if r["geo"]:
+            geo = ", ".join(str(r["geo"][k]) for k in ("country", "city") if r["geo"].get(k) and r["geo"][k] not in ("", "unknown"))
+        users = ", ".join(r["usernames"][:4]) or "—"
+        print(f"{r['ip']:<20} {r['attack_type']:<18} {r['attempts']:>9}  {ts:<20}  {rem:>10}  {users}")
+    print()
+
 
 def run_test_mode(dispatcher: AlertDispatcher, tracker: BruteForceTracker, T: dict) -> None:
     print(T["test_start"])
@@ -224,6 +260,7 @@ def build_arg_parser(T: dict) -> argparse.ArgumentParser:
     p.add_argument("--slack-url",   metavar="URL",          help=T["help_slack"])
     p.add_argument("--test",        action="store_true",    help=T["help_test"])
     p.add_argument("--stats",       action="store_true",    help=T["help_stats"])
+    p.add_argument("--blocked",     action="store_true",    help=T["help_blocked"])
     p.add_argument("--lang",        choices=["pl", "en"],   help=T["help_lang"])
     p.add_argument("--geoip-db",    metavar="FILE",          help=T["help_geoip_db"])
     p.add_argument("--version",     action="version",       version=f"BRUTU$ {VERSION}")
@@ -261,6 +298,7 @@ def main() -> int:
         time_window=det_cfg.get("time_window", 60),
         alert_cooldown=det_cfg.get("alert_cooldown", 300),
         success_failure_threshold=det_cfg.get("success_failure_threshold", 3),
+        spray_username_threshold=det_cfg.get("spray_username_threshold", 8),
     )
     logger.info(T["tracker_info"],
                 tracker.threshold, tracker.time_window, tracker.alert_cooldown)
@@ -297,9 +335,29 @@ def main() -> int:
         rep_manager = ReportManager(output_path=r_cfg.get("output_path", "reports/alerts.jsonl"))
         logger.info(T["reports_info"], r_cfg.get("output_path", "reports/alerts.jsonl"))
 
+    blk_cfg = cfg.get("blocker", {})
+    blocker = IPBlocker(
+        enabled=blk_cfg.get("enabled", False),
+        auto_unblock_after=blk_cfg.get("auto_unblock_after", 3600),
+        state_file=blk_cfg.get("state_file", "reports/blocked_ips.json"),
+        dry_run=blk_cfg.get("dry_run", False),
+    )
+    if blk_cfg.get("enabled"):
+        if blk_cfg.get("dry_run"):
+            logger.info(T["blk_dry"])
+        elif blk_cfg.get("auto_unblock_after", 3600):
+            logger.info(T["blk_enabled"], blk_cfg.get("auto_unblock_after", 3600))
+        else:
+            logger.info(T["blk_enabled_perm"])
+    else:
+        logger.info(T["blk_disabled"])
+
+    whitelist = parse_cidr_list(cfg.get("whitelist", []))
+
     dispatcher = AlertDispatcher(
         console=console_alert, discord=discord_alert,
         slack=slack_alert, report_manager=rep_manager, geo=geo,
+        blocker=blocker, whitelist_nets=whitelist,
     )
 
     # ── Special modes ─────────────────────────────────────────────────────────
@@ -311,8 +369,11 @@ def main() -> int:
         print_stats(tracker, T)
         return 0
 
+    if args.blocked:
+        print_blocked(blocker, T)
+        return 0
+
     # ── Log monitor ───────────────────────────────────────────────────────────
-    whitelist = parse_cidr_list(cfg.get("whitelist", []))
     monitor = LogMonitor(tracker=tracker, whitelist_nets=whitelist)
     monitor.add_alert_handler(dispatcher.dispatch)
 
@@ -350,6 +411,10 @@ def main() -> int:
                             len(stats), top_ip, stats[top_ip]["count"])
     finally:
         monitor.stop()
+        if blocker.enabled:
+            unblocked = blocker.unblock_all()
+            if unblocked:
+                logger.info("Unblocked %d IP(s) on shutdown.", unblocked)
         logger.info(i18n.get_T()["stopped"])
 
     return 0

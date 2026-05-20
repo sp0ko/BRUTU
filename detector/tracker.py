@@ -1,6 +1,10 @@
 """
 BruteForceTracker — sliding-window counter for failed login attempts.
 Thread-safe; designed to be shared across multiple log-monitor threads.
+
+Detects two attack patterns:
+  • Brute force   — many attempts from one IP (same or few accounts)
+  • Password spray — one IP tries many distinct accounts (few attempts each)
 """
 
 import time
@@ -34,6 +38,10 @@ class BruteForceTracker:
     window.  Emits an AlertEvent when *threshold* failures occur within
     *time_window* seconds.  Repeated alerts for the same IP are suppressed for
     *alert_cooldown* seconds to avoid notification spam.
+
+    Additionally emits a PASSWORD_SPRAY alert when the number of distinct
+    usernames tried from a single IP reaches *spray_username_threshold* within
+    the time window, even if the total attempt count is below *threshold*.
     """
 
     def __init__(
@@ -42,11 +50,13 @@ class BruteForceTracker:
         time_window: int = 60,
         alert_cooldown: int = 300,
         success_failure_threshold: int = 3,
+        spray_username_threshold: int = 8,
     ) -> None:
         self.threshold = threshold
         self.time_window = time_window
         self.alert_cooldown = alert_cooldown
         self.success_failure_threshold = success_failure_threshold
+        self.spray_username_threshold = spray_username_threshold
 
         # ip -> deque of (timestamp, username, attack_type, log_source)
         self._failed: Dict[str, deque] = defaultdict(deque)
@@ -72,9 +82,23 @@ class BruteForceTracker:
         with self._lock:
             bucket = self._failed[ip]
             bucket.append((timestamp, username, attack_type, log_source))
-            self._evict_old(bucket, time.time())  # always use real now for eviction
+            self._evict_old(bucket, time.time())
 
             count = len(bucket)
+            unique_users = len({e[1] for e in bucket if e[1]})
+
+            # Password spray: many distinct accounts, few attempts each
+            if (
+                unique_users >= self.spray_username_threshold
+                and self._cooldown_elapsed(ip, timestamp)
+            ):
+                self._last_alert[ip] = timestamp
+                self._total_triggered[ip] += 1
+                event = self._build_event(ip, bucket, count, successful_login=False)
+                event.attack_type = "PASSWORD_SPRAY"
+                return event
+
+            # Classic brute force: many attempts (threshold) in time window
             if count >= self.threshold and self._cooldown_elapsed(ip, timestamp):
                 self._last_alert[ip] = timestamp
                 self._total_triggered[ip] += 1

@@ -107,6 +107,21 @@ STRINGS: dict = {
         "fmt_window":   "okno",
         "fmt_type":     "typ",
         "fmt_users":    "użytkownicy",
+        # ── blocker ──────────────────────────────────────────────────────────
+        "blk_blocked":       "ZABLOKOWANO %s | typ=%s próby=%d",
+        "blk_unblocked":     "ODBLOKOWANO %s",
+        "blk_dry_run":       "[DRY-RUN] Blokada pominięta — tryb testowy",
+        "blk_no_root":       "Bloker włączony, ale brak uprawnień root — iptables nie zadziała.",
+        "blk_disabled":      "Aktywna blokada: wyłączona",
+        "blk_enabled":       "Aktywna blokada: iptables ✓  (auto-odblokowanie po %ds)",
+        "blk_enabled_perm":  "Aktywna blokada: iptables ✓  (blokada permanentna)",
+        "blk_dry":           "Aktywna blokada: DRY-RUN (bez rzeczywistych reguł)",
+        "blk_header":        "\n{'IP':<20} {'Typ ataku':<18} {'Próby':>7}  {'Zablokowano o':<20}  {'Odblok. za':>10}  Użytkownicy",
+        "blk_permanent":     "permanentna",
+        "blk_seconds":       "%ds",
+        "blk_none":          "Brak aktualnie zablokowanych adresów IP.",
+        "blk_spray_hint":    "[PASSWORD SPRAY] Wiele unikalnych kont z jednego IP.",
+        "help_blocked":      "Pokaż listę zablokowanych IP i zakończ",
     },
     "en": {
         # ── main.py ──────────────────────────────────────────────────────────
@@ -202,6 +217,21 @@ STRINGS: dict = {
         "fmt_window":   "window",
         "fmt_type":     "type",
         "fmt_users":    "usernames",
+        # ── blocker ──────────────────────────────────────────────────────────
+        "blk_blocked":       "BLOCKED %s | type=%s attempts=%d",
+        "blk_unblocked":     "UNBLOCKED %s",
+        "blk_dry_run":       "[DRY-RUN] Block skipped — dry-run mode",
+        "blk_no_root":       "Blocker enabled but not running as root — iptables will fail.",
+        "blk_disabled":      "Active blocking: disabled",
+        "blk_enabled":       "Active blocking: iptables ✓  (auto-unblock after %ds)",
+        "blk_enabled_perm":  "Active blocking: iptables ✓  (permanent)",
+        "blk_dry":           "Active blocking: DRY-RUN (no real rules applied)",
+        "blk_header":        "\n{'IP':<20} {'Attack type':<18} {'Attempts':>9}  {'Blocked at':<20}  {'Unblock in':>10}  Usernames",
+        "blk_permanent":     "permanent",
+        "blk_seconds":       "%ds",
+        "blk_none":          "No IPs are currently blocked.",
+        "blk_spray_hint":    "[PASSWORD SPRAY] Many unique accounts targeted from one IP.",
+        "help_blocked":      "Show blocked IP list and exit",
     },
 }
 
